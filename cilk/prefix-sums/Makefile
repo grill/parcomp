@@ -2,8 +2,11 @@
 
 all: prefixsum
 
-prefixsum: prefixsum.c util.h
-	clikc -std=c99 -Wall -fopenmp -lm -g -pedantic -DENDEBUG -D_BSD_SOURCE -D_XOPEN_SOURCE=500 -o prefixsum -O3 prefixsum.c
+prefixsum: prefixsum.cilk util.h
+	/opt/cilk-5.4.6/bin/cilkc -O3 prefixsum.cilk -o prefixsum
 
 clean:
-	rm -rf recursive; rm -rf iterative; rm -rf hillis; rm -rf prefixsum
+	rm -rf prefixsum
+
+deploy:
+	scp * saturn:/home/ws2012/e1025120/cilk

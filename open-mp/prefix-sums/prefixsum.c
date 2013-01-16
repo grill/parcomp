@@ -8,7 +8,7 @@
 #include <omp.h>
 
 #define ATYPE int
-#define ASIZE 100000000
+#define ASIZE 20
 #define AVAL 1
 
 int* gen_int_array(int v, int n);
