@@ -11,8 +11,11 @@ single: bucket-sort
 two: bucket-sort
 	mpirun -np 2 ./bucket-sort
 
+radix: bucket-sort
+	mpirun -np 4 ./bucket-sort -r
+
 bucket-sort: bucket-sort.c
-	mpicc -Wall -o bucket-sort -O3 bucket-sort.c
+	mpicc -Wall -lm -o bucket-sort -O3 bucket-sort.c
 
 clean:
 	rm -rf bucket-sort
