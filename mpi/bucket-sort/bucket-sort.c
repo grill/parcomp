@@ -125,7 +125,6 @@ int main(int argc, char *argv[])
   for (i=0; i<localSize; i++) B[bucket[A[i]]++] = A[i];
 
   free(bucket);
-  free(A);
   //step 2: O(n + log p)
   MPI_Allreduce(LocB,AllB,R,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
@@ -147,14 +146,18 @@ int main(int argc, char *argv[])
     //  fprintf(stderr,"%i RelB[%d] = %d\n",rank,i,RelB[i]);
 
   //Step 5: compute number of elements to be sent to each other process, sendelts[i], i=0,...,p-1
-  for(i=0; i<R; i++) {
-    k = (AllB[B[i]]+RelB[B[i]]++) % localSize;
+  for(i=0; i<localSize; i++) {
+    k = (AllB[B[i]]+RelB[B[i]]++) / localSize;
     if(k != rank) {
+   //   printf("%i i: %i, B[i]: %i, k: %i, localSize: %i, bigdiv: %i\n",
+	//     rank, i, B[i], k, localSize, AllB[B[i]]+(RelB[B[i]])-1);
       LocB[B[i]]--;
       sendelts[k]++;
       amntRecvel++;
       if(sendelts[k] == 1)
          sdispls[k] = i;
+    } else {
+      A[i-amntRecvel] = B[i];
     }
   }
   free(AllB);
@@ -180,8 +183,21 @@ int main(int argc, char *argv[])
   for (i=R-1; i>0; i--) LocB[i] = LocB[i-1];
   LocB[0] = 0;
 
+  //for(i = 0; i < amntRecvel; i++)
+  //  fprintf(stderr,"%i C[%d] = %d, LocB[C[%d]] = %d\n",rank,i,C[i], i, LocB[C[i]]);
+
+  for (i=0; i<localSize-amntRecvel; i++) {
+   // printf("%i LocB[A]: %i, A: %i, i: %i\n",
+//	     rank, LocB[A[i]], A[i], i);
+    B[LocB[A[i]]++] = A[i];
+  }
+
+ // printf("first\n");
+  //printArray(B, localSize, rank);
+
   for (i=0; i<amntRecvel; i++) {
-    for(;B[LocB[C[i]]] == C[i]; LocB[C[i]]++);
+    //printf("%i LocB[C]: %i, C: %i, i: %i\n",
+	//     rank, LocB[C[i]], C[i], i);
     B[LocB[C[i]]++] = C[i];
   }
 
@@ -189,22 +205,24 @@ int main(int argc, char *argv[])
   printArray(B, localSize, rank);
   fprintf(stdout, "Time: %f\n", (end - start));
 
-  printf("First\n");
+ // printf("First\n");
+  free(A);
+ // printf("A\n");
   free(LocB);
-  printf("LocB\n");
+//  printf("LocB\n");
   free(C);
-  printf("C\n");
+ // printf("C\n");
   free(B);
-  printf("B\n");
+ // printf("B\n");
 
   free(sendelts);
-  printf("sendelts\n");
+ // printf("sendelts\n");
   free(sdispls);
-  printf("sdispls\n");
+ // printf("sdispls\n");
   free(rdispls);
-  printf("rdispls\n");
+ // printf("rdispls\n");
   free(recvelts);
-  printf("recvelts\n");
+ // printf("recvelts\n");
 
   //Possible optimization: replace MPI_Allreduce by MPI_Bcast
 
