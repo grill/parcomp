@@ -209,7 +209,9 @@ void bucket_sort(int R, int n, int size, int rank, int print_array) {
   }
 
   end = MPI_Wtime();
-  printArray(B, localSize, rank);
+ 
+  if(print_array)
+    printArray(B, localSize, rank);
   fprintf(stdout, "Proc %i - Time: %f\n", rank, (end - start));
 
   free(A);
@@ -257,9 +259,9 @@ void radixsort(int R, int n, int size, int rank, int print_array) {
   /* Initialize array with random numbers, from 0 to R */
   for(i = 0; i < localSize; i++)
     A[i] = rand() % R;
-  if(print_array)
-    for(i = 0; i < localSize; i++)
-      fprintf(stderr,"A[%d] = %d\n",i,A[i]);
+ // if(print_array)
+ //   for(i = 0; i < localSize; i++)
+  //    fprintf(stderr,"A[%d] = %d\n",i,A[i]);
 
   if(rank == 0)
     fprintf(stdout, "Radix Sort...\n\n");
@@ -269,6 +271,8 @@ void radixsort(int R, int n, int size, int rank, int print_array) {
 
   while (R / exp > 0) {
     memset((void* ) bucket, 0, sizeof(int)*radix);
+    memset((void* ) AllB, 0, sizeof(int)*radix);
+    memset((void* ) RelB, 0, sizeof(int)*radix);
 
     //step 1: local bucket sort; buckets[i] = amnt of keys i
     for (i = 0; i < localSize; i++) bucket[(A[i] / exp) % radix]++;
@@ -284,14 +288,14 @@ void radixsort(int R, int n, int size, int rank, int print_array) {
     for (i = 0; i < localSize; i++) B[bucket[(A[i] / exp) % radix]++] = A[i];
 
     //step 2: O(n + log p)
-    MPI_Allreduce(LocB,AllB,R,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+    MPI_Allreduce(LocB,AllB,radix,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
     //step 3
-    MPI_Exscan(LocB,RelB,R,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+    MPI_Exscan(LocB,RelB,radix,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
     //Step 4: local exclusive prefix-sums of AllB
-    for (i=1; i<R; i++) AllB[i] += AllB[i-1];
-    for (i=R-1; i>0; i--) AllB[i] = AllB[i-1];
+    for (i=1; i<radix; i++) AllB[i] += AllB[i-1];
+    for (i=radix-1; i>0; i--) AllB[i] = AllB[i-1];
     AllB[0] = 0;
 
     //Step 5: compute number of elements to be sent to each other process, sendelts[i], i=0,...,p-1
@@ -301,6 +305,9 @@ void radixsort(int R, int n, int size, int rank, int print_array) {
     for(i=0; i<localSize; i++) {
       k = (AllB[(B[i] / exp) % radix]+RelB[(B[i] / exp) % radix]++) / localSize;
       if(k != rank) {
+        //printf("%i i: %i, B[i]: %i, mB[i]: %i, k: %i, localSize: %i, all: %i, rel: %i\n",
+	 //    rank, i, B[i], (B[i] / exp) % radix, k,
+	  //     localSize, AllB[(B[i] / exp) % radix], (RelB[(B[i] / exp) % radix])-1);
         LocB[(B[i] / exp) % radix]--;
         sendelts[k]++;
         amntRecvel++;
@@ -324,12 +331,18 @@ void radixsort(int R, int n, int size, int rank, int print_array) {
 
     k = 0;
     //Step 8: reorder elements from C back to A
-    for(i = 0; i < amntRecvel; i++) LocB[C[i]]++;
+    for(i = 0; i < amntRecvel; i++) LocB[(C[i] / exp) % radix]++;
 
-    for (i=1; i<R; i++) LocB[i] += LocB[i-1];
-    for (i=R-1; i>0; i--) LocB[i] = LocB[i-1];
+    for (i=1; i<radix; i++) LocB[i] += LocB[i-1];
+    for (i=radix-1; i>0; i--) LocB[i] = LocB[i-1];
     LocB[0] = 0;
 
+    //printArray(B, localSize, rank);
+
+    for(i=0; i < rank; i++) {
+      for(k=0; k < recvelts[i]; k++)
+	B[LocB[(C[rdispls[i]+k] / exp) % radix]++] = C[rdispls[i]+k];
+    }
 
     for (i=0; i<localSize-amntRecvel; i++) {
       B[LocB[(A[i] / exp) % radix]++] = A[i];
@@ -338,17 +351,24 @@ void radixsort(int R, int n, int size, int rank, int print_array) {
     //printf("bl: %i\n", amntRecvel);
     //printArray(C, localSize, rank);
     //printArray(LocB, radix, rank);
+    //printArray(B, localSize, rank);
 
-    for (i=0; i<amntRecvel; i++) {
-      B[LocB[(C[i] / exp) % radix]++] = C[i];
+    for(i=rank+1; i < size; i++) {
+      for(k=0; k < recvelts[i]; k++)
+	B[LocB[(C[rdispls[i]+k] / exp) % radix]++] = C[rdispls[i]+k];
     }
+  //  for (i=0; i<amntRecvel; i++) {
+  //    B[LocB[(C[i] / exp) % radix]++] = C[i];
+  //  }
 
     for (i = 0; i < localSize; i++)
       A[i] = B[i];
     exp *= 10;
  
-    printf("\nPASS %.0f  -  ", log10(exp));
-    printArray(A, localSize, rank);
+    if(print_array) {
+      printf("\nPASS %.0f  -  ", log10(exp));
+      printArray(A, localSize, rank);
+    }
   }
 
   end = MPI_Wtime();
