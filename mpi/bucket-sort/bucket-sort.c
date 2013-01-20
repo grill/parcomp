@@ -7,16 +7,19 @@
 #include <string.h>
 #include <math.h>
 
+#define ATYPE long int
+
 static void usage(void);
-void printArray(int * arr, int size, int rank);
-void radixsort(int R, int n, int size, int rank, int print_array);
-void bucket_sort(int R, int n, int size, int rank, int print_array);
+void printArray(int* arr, ATYPE size, int rank);
+double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array);
+double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array);
 
 int main(int argc, char *argv[])
 {
-  int rank, size;
-  char name[MPI_MAX_PROCESSOR_NAME];
-  int nlen;
+  int rank;
+  int size;
+  double time;
+  double* rtime = malloc(sizeof(double));
 
   MPI_Init(&argc,&argv);
 
@@ -24,44 +27,36 @@ int main(int argc, char *argv[])
   MPI_Comm_size(MPI_COMM_WORLD,&size);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 
-  MPI_Get_processor_name(name,&nlen);
+//  if (rank==0) {
+//    printf("Rank %d initializing, total %d\n",rank,size);
+//  }
 
-  if (rank==0) {
-    printf("Rank %d initializing, total %d\n",rank,size);
-  }
-  int R = 10; //Numbers in array
-  int n = 100; //size of array
+  ATYPE R = 10; //Numbers in array
+  ATYPE n = 100; //size of array
   int r = 0;
   int print_array = 0;
-  char c;
-  char* tailptr;
 
-   //tabstop argument
+  char c;
+
    opterr = 0;
    while ((c = getopt(argc, argv, "n:R:dr")) != -1 ) {
       switch (c) {
-      case 'n':
-         n = strtol(optarg, &tailptr, 10);
-         if(*tailptr != '\0') {
+      case 'n': //array length
+         if(sscanf(optarg,"%ld",&n) == EOF) {
             (void) fprintf(stderr, "%s: %s is not a valid number.\n", argv[0],
-               tailptr);
+               optarg);
             usage();
          }
          break;
-      case 'R':
-         R = strtol(optarg, &tailptr, 10);
-         if(*tailptr != '\0') {
+      case 'R': //array length
+         if(sscanf(optarg,"%ld",&R) == EOF) {
             (void) fprintf(stderr, "%s: %s is not a valid number.\n", argv[0],
-               tailptr);
+               optarg);
             usage();
          }
          break;
-      case 'd':
-         print_array = 1;
-         break;
-      case 'r':
-         r = 1;
-         break;
+      case 'd': print_array = 1; break;
+      case 'r': r = 1; break;
       case '?':
          (void) fprintf(stderr, "%s: The Parameter %c is invalid.\n", argv[0],
             optopt);
@@ -74,20 +69,27 @@ int main(int argc, char *argv[])
    }
 
    if(r)
-     radixsort(R, n, size, rank, print_array);
+     time = radixsort(R, n, size, rank, print_array);
   else
-    bucket_sort(R, n, size, rank, print_array);
+     time = bucket_sort(R, n, size, rank, print_array);
 
+  MPI_Reduce(&time, rtime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+  if(rank == 0) {
+    fprintf(stdout, "%f", (*rtime));
+  }
+
+  free(rtime);
   MPI_Finalize();
   return 0;
 }
 
-void bucket_sort(int R, int n, int size, int rank, int print_array) {
-  int localSize = n/size;
+double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
+  ATYPE localSize = n/size;
   //step 1: local bucket sort; buckets[i] = amnt of keys i
-  int i;
-  int k;
-  int amntRecvel = 0;
+  ATYPE i;
+  ATYPE k;
+  ATYPE amntRecvel = 0;
 
   double start;
   double end;
@@ -116,10 +118,10 @@ void bucket_sort(int R, int n, int size, int rank, int print_array) {
     A[i] = rand() % R;
   if(print_array)
     for(i = 0; i < localSize; i++)
-      fprintf(stderr,"A[%d] = %d\n",i,A[i]);
+      fprintf(stderr,"A[%li] = %d\n",i,A[i]);
 
-  if(rank == 0)
-    fprintf(stdout, "Bucket Sort...\n\n");
+//  if(rank == 0)
+//    fprintf(stdout, "Bucket Sort...\n\n");
 
   /* Start Timer */
   start = MPI_Wtime();
@@ -212,7 +214,8 @@ void bucket_sort(int R, int n, int size, int rank, int print_array) {
  
   if(print_array)
     printArray(B, localSize, rank);
-  fprintf(stdout, "Proc %i - Time: %f\n", rank, (end - start));
+//  fprintf(stdout, "%f", (end - start));
+//  fprintf(stdout, "Proc %i - Time: %f\n", rank, (end - start));
 
   free(A);
   free(LocB);
@@ -224,9 +227,10 @@ void bucket_sort(int R, int n, int size, int rank, int print_array) {
   free(recvelts);
 
   //Possible optimization: replace MPI_Allreduce by MPI_Bcast
+  return end - start;
 }
 
-void radixsort(int R, int n, int size, int rank, int print_array) {
+double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
   int localSize = n/size;
   int i;
   int k;
@@ -263,8 +267,8 @@ void radixsort(int R, int n, int size, int rank, int print_array) {
  //   for(i = 0; i < localSize; i++)
   //    fprintf(stderr,"A[%d] = %d\n",i,A[i]);
 
-  if(rank == 0)
-    fprintf(stdout, "Radix Sort...\n\n");
+//  if(rank == 0)
+//    fprintf(stdout, "Radix Sort...\n\n");
 
   /* Start Timer */
   start = MPI_Wtime();
@@ -372,7 +376,8 @@ void radixsort(int R, int n, int size, int rank, int print_array) {
   }
 
   end = MPI_Wtime();
-  fprintf(stdout, "Proc %i - Time: %f\n", rank, (end - start));
+//  fprintf(stdout, "%f", (end - start));
+//  fprintf(stdout, "Proc %i - Time: %f\n", rank, (end - start));
 
   free(AllB);
   free(RelB);
@@ -384,14 +389,16 @@ void radixsort(int R, int n, int size, int rank, int print_array) {
   free(sdispls);
   free(rdispls);
   free(recvelts);
+
+  return end - start;
 }
 
-void printArray(int * arr, int size, int rank) {
-  int i;
+void printArray(int * arr, ATYPE size, int rank) {
+  ATYPE i;
 
   fprintf(stdout, "Proc %i: ", rank);
   for(i=0; i<size; i++) {
-    fprintf(stdout, "%i ", arr[i]);
+    fprintf(stdout, "%d ", arr[i]);
   }
   fprintf(stdout, "\n");
 }

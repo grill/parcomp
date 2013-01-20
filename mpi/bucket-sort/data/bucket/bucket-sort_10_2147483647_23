@@ -1,0 +1,2 @@
+[0,245] global memory attach (intranode, System V) failed. (errno=13: Permission denied) 1
+[0,252] global memory attach (intranode, System V) failed. (errno=2: No such file or directory) 1

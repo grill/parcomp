@@ -30,4 +30,5 @@ clean:
 	rm -rf bucket-sort
 
 deploy:
-	scp bucket-sort.c Makefile jupiter:
+	scp bucket-sort.c Makefile gendata.sh jupiter:
+	ssh jupiter
