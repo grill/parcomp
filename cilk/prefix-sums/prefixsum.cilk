@@ -13,13 +13,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
-#include "util.h"
 
-
-/* === Global Variables === */
-
-//Name of the program
-char *command = "<not set>";
+#define ATYPE long int
 
 /* === Prototypes === */
 
@@ -30,57 +25,61 @@ char *command = "<not set>";
  */
 
 static void usage(void);
-cilk void prefixsums(int* x, int n, int threads);
-cilk void cilk_prefixsums(int i, int j, int unit, int threads, int* a);
-cilk void iterative_scan(int* x, int n, int threads);
-cilk void upPhase(int i, int j, int incr, int off, int unit, int* a);
-cilk void downPhase(int i, int j, int incr, int off, int unit, int* a);
-cilk void testPrefixsum(char* name, int size, int unit, cilk void (*prefixsum)(int*, int, int));
-int* gen_int_array(int v, int n);
-long single_sum(int* x, int n);
+
+cilk void prefixsums(ATYPE* x, ATYPE n, ATYPE unit, int threads);
+cilk void cilk_prefixsums(ATYPE i, ATYPE j, ATYPE unit, int threads, ATYPE* a);
+cilk void dataPara(ATYPE i, ATYPE j, ATYPE val, ATYPE unit, ATYPE* a);
+
+cilk void iterative_scan(ATYPE* x, ATYPE n, ATYPE unit, int threads);
+cilk void upPhase(ATYPE i, ATYPE j, ATYPE incr, ATYPE off, ATYPE unit, ATYPE* a);
+cilk void downPhase(ATYPE i, ATYPE j, ATYPE incr, ATYPE off, ATYPE unit, ATYPE* a);
+
+void printArray(ATYPE * arr, ATYPE size, ATYPE i);
+cilk void testPrefixsum(char* name, ATYPE size, ATYPE unit, ATYPE value, ATYPE sum, int threads, cilk void (*prefixsum)(ATYPE*, ATYPE, ATYPE, int));
+ATYPE* gen_int_array(ATYPE v, ATYPE n);
+long single_sum(ATYPE* x, ATYPE n);
 
 /* === Implementations === */
 
 cilk int main(int argc, char *argv[]) {
-  char c;
-  char *tailptr = NULL;
-  int threads = 1;
-  int size = 500000000;
-  int unit = 5000;
-  int* arr;
-  int sum;
+   char c;
+   int threads = Cilk_active_size;
+   ATYPE n = 500000000;
+   ATYPE* arr;
+   ATYPE sum;
+   ATYPE value = 1;
+   ATYPE unit = fmaxl(n/threads, 1);
 
-   //assign program name to command
-   if(argc>0) command = argv[0];
+   int prefix = 0;
+   int iterative = 0;
 
    //tabstop argument
    opterr = 0;
-   while ((c = getopt(argc, argv, "t:s:")) != -1 ) {
+   while ((c = getopt(argc, argv, "u:n:v:pi")) != -1 ) {
       switch (c) {
-      case 't':
-         threads = strtol(optarg, &tailptr, 10);
-         if(*tailptr != '\0') {
+      case 'n': //array length
+         if(sscanf(optarg,"%li",&n) == EOF) {
             (void) fprintf(stderr, "%s: %s is not a valid number.\n", argv[0],
-               tailptr);
+               optarg);
             usage();
          }
          break;
-      case 's':
-         size = strtol(optarg, &tailptr, 10);
-         if(*tailptr != '\0') {
+      case 'v': //value
+         if(sscanf(optarg,"%li",&value) == EOF) {
             (void) fprintf(stderr, "%s: %s is not a valid number.\n", argv[0],
-               tailptr);
+               optarg);
             usage();
          }
          break;
-      case 'u':
-         unit = strtol(optarg, &tailptr, 10);
-         if(*tailptr != '\0') {
+      case 'u': //value
+         if(sscanf(optarg,"%li",&unit) == EOF) {
             (void) fprintf(stderr, "%s: %s is not a valid number.\n", argv[0],
-               tailptr);
+               optarg);
             usage();
          }
          break;
+      case 'i': iterative = 1; break;
+      case 'p': prefix = 1; break;
       case '?':
          (void) fprintf(stderr, "%s: The Parameter %c is invalid.\n", argv[0],
             optopt);
@@ -92,53 +91,71 @@ cilk int main(int argc, char *argv[]) {
       }
    }
 
-  //TODO: Clean Up, Split Count ops & performance, hills-steele performance after malloc
+ //  printf("t: %i\n", threads);
 
-  fprintf(stdout, "--- Stats ---\n\n");
-  fprintf(stdout, "n: %i, n*log(n): %f, n*log(n)^2: %f, n*n: %i\n",
-	  size, size*log2(size), size*log2(size)*log2(size), size*size);
+//  fprintf(stdout, "--- Stats ---\n\n");
+//  fprintf(stdout, "n: %i, n*log(n): %f, n*log(n)^2: %f, n*n: %i\n",
+//	  size, size*log2(size), size*log2(size)*log2(size), size*size);
 
-  arr = gen_int_array(1, size);
-  sum = single_sum(arr, size);
-  free(arr);
+   arr = gen_int_array(value, n);
+   sum = single_sum(arr, n);
+   free(arr);
 
-  fprintf(stdout, "Sum: %i\n\n", sum);
+//  fprintf(stdout, "Sum: %i\n\n", sum);
 
-  spawn testPrefixsum("Parallel Cilk Prefixsums", size, threads, &prefixsums);
-  fprintf(stdout, "\n");
-  spawn testPrefixsum("Parallel Cilk Iterative", size, threads, &iterative_scan);
+   if(prefix)
+     spawn testPrefixsum("Parallel Cilk Prefixsums", n, unit, value, sum, threads, &prefixsums);
 
-  return 0;
+   if(iterative)
+     spawn testPrefixsum("Parallel Cilk Iterative", n, unit, value, sum, threads, &iterative_scan);
+
+   return 0;
 }
 
-cilk void prefixsums(int* x, int n, int threads) {
-  spawn cilk_prefixsums(0, n, n/threads, threads, x);
+cilk void prefixsums(ATYPE* x, ATYPE n, ATYPE unit, int threads) {
+  spawn cilk_prefixsums(0, n, unit, threads, x);
+  sync;
 }
 
-cilk void cilk_prefixsums(int i, int j, int unit, int threads, int* a) {
-  int k;
+cilk void cilk_prefixsums(ATYPE i, ATYPE j, ATYPE unit, int threads, ATYPE* a) {
+  ATYPE k;
 
   if (j-i<=unit) {
     for (k=i+1; k<j; k++) {
       a[k] = a[k-1]+a[k];
     }
   } else {
-    int e = (j-i)/threads;
+    ATYPE e = ((j - i)/2) + i;
+    /*int e = (j-i)/threads;
     //performs badly with wrong size
     for(k=i+e; k < j; k += e) {
       spawn cilk_prefixsums(k-e, k,unit, threads, a);
     }
+    if((k-e) != j) {
+      spawn cilk_prefixsums(k-e, j,unit, threads, a);
+    }*/
+    spawn cilk_prefixsums(i, e,unit, threads, a);
+    spawn cilk_prefixsums(e, j,unit, threads, a);
     sync;
-    for(k=i+e; k <= j; k += e) {
-      a[k] = a[k-e] + a[k];
-    }
+    spawn dataPara(e, j, a[e-1], unit, a);
+    sync;
   }
 }
 
-cilk void iterative_scan(int* x, int n, int threads) {
-  int k;
-  int kk;
-  int unit = n/threads;
+cilk void dataPara(ATYPE i, ATYPE j, ATYPE val, ATYPE unit, ATYPE* a) {
+  if (j-i<=unit) {
+    ATYPE k;
+    for (k=i; k<j; k++) a[k] = a[k] + val;
+  } else {
+    spawn dataPara(i, ((j-i)/2)+i, val, unit, a);
+    spawn dataPara(((j-i)/2)+i, j, val, unit, a);
+    sync;
+  }
+}
+
+cilk void iterative_scan(ATYPE* x, ATYPE n, ATYPE unit, int threads) {
+  ATYPE k;
+  ATYPE kk;
 
   //up phase
   for (k=1; k<n; k=kk) {
@@ -155,30 +172,38 @@ cilk void iterative_scan(int* x, int n, int threads) {
   }
 }
 
-cilk void upPhase(int i, int j, int incr, int off, int unit, int* a) {
-  if (j-i<=unit) {
-    int k;
+cilk void upPhase(ATYPE i, ATYPE j, ATYPE incr, ATYPE off, ATYPE unit, ATYPE* a) {
+  ATYPE k;
+  if ((j-i)/incr <= unit) {
     for (k=i; k<j; k += incr) a[k] = a[k] + a[k-off];
   } else {
-    spawn upPhase(i, incr * ((j/incr)/2), incr, off, unit, a);
-    spawn upPhase(incr * ((j/incr)/2+1), j, incr, off, unit, a);
+    k = ((j-i)/incr)/2;
+    k = (k * incr) + i;
+    if(i < k)
+      spawn upPhase(i, k, incr, off, unit, a);
+    if(k < j)
+      spawn upPhase(k, j, incr, off, unit, a);
     sync;
   }
 }
 
-cilk void downPhase(int i, int j, int incr, int off, int unit, int* a) {
-  if (j-i<=unit) {
-    int k;
+cilk void downPhase(ATYPE i, ATYPE j, ATYPE incr, ATYPE off, ATYPE unit, ATYPE* a) {
+  ATYPE k;
+  if ((j-i)/incr <= unit) {
     for (k=i; k<j; k += incr) a[k+off] = a[k] + a[k+off];
   } else {
-    spawn downPhase(i, incr * ((j/incr)/2), incr, off, unit, a);
-    spawn downPhase(incr * ((j/incr)/2+1), j, incr, off, unit, a);
+    k = ((j-i)/incr)/2;
+    k = (k * incr) + i;
+    if(i < k)
+       spawn downPhase(i, k, incr, off, unit, a);
+    if(i < k)
+       spawn downPhase(k, j, incr, off, unit, a);
     sync;
   }
 }
 
-cilk void testPrefixsum(char* name, int size, int threads, cilk void (*prefixsum)(int*, int, int)) {
-  int* arr;
+cilk void testPrefixsum(char* name, ATYPE size, ATYPE unit, ATYPE value, ATYPE sum, int threads, cilk void (*prefixsum)(ATYPE*, ATYPE, ATYPE, int)) {
+  ATYPE* arr;
   Cilk_time tm_begin, tm_elapsed;
   Cilk_time wk_begin, wk_elapsed;
   Cilk_time cp_begin, cp_elapsed;
@@ -186,13 +211,13 @@ cilk void testPrefixsum(char* name, int size, int threads, cilk void (*prefixsum
   //int* ops = malloc(sizeof(int) * omp_get_max_threads());
   //memset((void *) ops, 0, sizeof(int)*omp_get_max_threads());
 
-  arr = gen_int_array(1, size);
+  arr = gen_int_array(value, size);
   sync;
   cp_begin = Cilk_user_critical_path;
   wk_begin = Cilk_user_work;
   tm_begin = Cilk_get_wall_time();
 
-  spawn prefixsum(arr, size, threads);
+  spawn prefixsum(arr, size, unit, threads);
   sync;
 
   /* Timing. "Stop" timers */
@@ -200,17 +225,23 @@ cilk void testPrefixsum(char* name, int size, int threads, cilk void (*prefixsum
   wk_elapsed = Cilk_user_work - wk_begin;
   cp_elapsed = Cilk_user_critical_path - cp_begin;
 
-  fprintf(stdout, "%s -- Running time: %4f, Work: %4f, Span: %4f, sum: %i\n",
-          name, Cilk_wall_time_to_sec(tm_elapsed),  Cilk_time_to_sec(wk_elapsed),
-	   Cilk_time_to_sec(cp_elapsed), arr[size-1]);
+  if(sum == arr[size-1]) {
+    fprintf(stdout, "%4f", Cilk_wall_time_to_sec(tm_elapsed));
+  } else {
+    fprintf(stdout, "false: %li\n", arr[size-1]);
+  }
 
+  // fprintf(stdout, "%s -- Running time: %4f, Work: %4f, Span: %4f, sum: %i\n",
+  //        name, Cilk_wall_time_to_sec(tm_elapsed),  Cilk_time_to_sec(wk_elapsed),
+  //   Cilk_time_to_sec(cp_elapsed), arr[size-1]);
   //free(ops);
+
   free(arr);
 }
 
-int* gen_int_array(int v, int n) {
-  int* ret = malloc(sizeof(int)*n);
-  int i;
+ATYPE* gen_int_array(ATYPE v, ATYPE n) {
+  ATYPE* ret = malloc(sizeof(ATYPE)*n);
+  ATYPE i;
 
   for(i = 0; i < n; i++)
        ret[i] = v;
@@ -219,9 +250,9 @@ int* gen_int_array(int v, int n) {
 }
 
 
-long single_sum(int* x, int n) {
-  long sum = 0;
-  int i;
+ATYPE single_sum(ATYPE* x, ATYPE n) {
+  ATYPE sum = 0;
+  ATYPE i;
 
   for(i = 0; i < n;i++) {
      sum += x[i];
@@ -230,8 +261,15 @@ long single_sum(int* x, int n) {
   return sum;
 }
 
+void printArray(ATYPE * arr, ATYPE size, ATYPE i) {
+
+  for(; i<size; i++) {
+    fprintf(stdout, "%li ", arr[i]);
+  }
+  fprintf(stdout, "\n");
+}
 
 static void usage(void) {
-   (void) fprintf(stderr, "Usage: %s [-t threads] [-s size] [-u unit]\n", command);
+   (void) fprintf(stderr, "Usage: prefixsum [-t threads] [-s size] [-u unit]\n");
    exit(EXIT_FAILURE);
 }
