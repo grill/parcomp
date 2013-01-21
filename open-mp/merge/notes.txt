@@ -1,0 +1,14 @@
+angefangen mit hello world
+dann sequential merge implementiert
+problem: wie teste ich das?
+schnelle interleaved testdaten generieren
+einfacher check ob zielarray sortiert ist
+parallele implementierung
+wiederverwenden des sequentiellen merge für kleine arbeitseinheiten und merge der teilungspunkte
+yay segfaults!
+ungefähr 3 facher speedup! -O3: kein speedup mehr...
+aber auf jupiter: speedup!
+mehrere modi von testdaten: interleaved, a before b, random
+testdatengenerierung so verändert, dass das ergebnis immer 1...n aufsteigend ist, mehr fehler werden so gefunden
+more segfaults!
+mehr optionen, output in csv
