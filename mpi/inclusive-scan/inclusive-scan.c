@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <getopt.h>
+#include <string.h>
+#include <ctype.h>
+#include <errno.h>
 
 
 // MPI header
@@ -13,11 +17,17 @@
 #define HELLO 1234 // tag for control messages
 #define SCAN 1337
 
+struct opt {
+    INT_T size;
+};
+
 void arrayscan(INT_T A[], INT_T n, MPI_Comm comm, INT_T (*commscan)(INT_T, MPI_Comm)) ;
 INT_T* gen_data(int rank, INT_T size) ;
 void localscan(INT_T A[], INT_T n) ;
 INT_T commscan_primitive(INT_T A, MPI_Comm comm) ;
 INT_T my_commscan(INT_T A, MPI_Comm comm) ;
+void parse_args(int argc, char ** argv, struct opt* args) ;
+INT_T check_asc(INT_T* A, INT_T size) ;
 
 int main(int argc, char *argv[])
 {
@@ -27,6 +37,7 @@ int main(int argc, char *argv[])
   int nlen;
   INT_T size = 100000;
   double time = 0;
+  struct opt args;
 
   MPI_Init(&argc,&argv);
 
@@ -35,11 +46,31 @@ int main(int argc, char *argv[])
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 
   //printf("%d %d\n", rank, argc);
+  parse_args(argc, argv, &args);
+  if(args.size > 0) {
+    size = args.size/comm_size;
+  }
 
   MPI_Get_processor_name(name,&nlen);
 
   INT_T* A = gen_data(rank, size);
   arrayscan(A, size, MPI_COMM_WORLD, commscan_primitive);
+
+#ifdef DEBUG
+  {
+    INT_T a = check_asc(A, size);
+    if(a == -1) {
+        printf("ascending check ok\n");
+    } else {
+        printf("ascending error on position %ld\n", a);
+    }
+    #ifdef DEBUGDEBUG
+    for(INT_T i = 0; i < size; i++) {
+        printf("%ld\n", A[i]);
+    }
+    #endif
+  }
+#endif
   time = - MPI_Wtime();
 /*
   if (rank==0) {
@@ -54,7 +85,15 @@ int main(int argc, char *argv[])
   arrayscan(A, size, MPI_COMM_WORLD, my_commscan);
   time += MPI_Wtime();
 
-  printf("Rank %3d sum: %20ld time: %2lf\n", rank, A[size-1], time);
+  printf("Rank %3d min: %20ld sum: %20ld time: %2lf\n", rank, A[0], A[size-1], time);
+  if(rank == 0) {
+    printf("Sum should be %ld\n", size*comm_size*(size*comm_size+1)/2);
+  }
+#ifdef DEBUGDEBUG
+    for(INT_T i = 0; i < size; i++) {
+        printf("%ld\n", A[i]);
+    }
+#endif
       
   MPI_Finalize();
   return 0;
@@ -62,6 +101,11 @@ int main(int argc, char *argv[])
 
 INT_T* gen_data(int rank, INT_T size) {
     INT_T* ret = calloc(size, sizeof(INT_T));
+
+    if(ret == NULL) {
+        printf("gen_data: %s", strerror(errno));
+        exit(1);
+    }
 
     for(INT_T i = 0; i < size; i++) {
         ret[i] = 1;
@@ -133,4 +177,40 @@ void localscan(INT_T A[], INT_T n) {
     for(INT_T i = 1; i < n; i++) {
         A[i] += A[i-1];
     }
+}
+
+void parse_args(int argc, char ** argv, struct opt* args) {
+    args->size = -1;
+    
+    char c;
+
+    while ((c = getopt (argc, argv, "s:")) != -1)
+     switch (c)
+       {
+       case 's':
+         args->size = strtol(optarg, NULL, 16);
+         break;
+       case '?':
+         if (optopt == 's')
+           fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+         else if (isprint (optopt))
+           fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+         else
+           fprintf (stderr,
+                    "Unknown option character `\\x%x'.\n",
+                    optopt);
+         return;
+       default:
+         abort ();
+       }
+}
+
+INT_T check_asc(INT_T* A, INT_T size) {
+    INT_T start = A[0];
+
+    for(INT_T i = 0; i < size; i++) {
+        if(A[i] != start + i)
+            return i;
+    }
+    return -1;
 }
