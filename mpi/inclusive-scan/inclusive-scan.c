@@ -19,6 +19,7 @@
 
 struct opt {
     INT_T size;
+    int parallel;
 };
 
 void arrayscan(INT_T A[], INT_T n, MPI_Comm comm, INT_T (*commscan)(INT_T, MPI_Comm)) ;
@@ -82,7 +83,11 @@ int main(int argc, char *argv[])
   if (rank+1<size) MPI_Send(&rank,1,MPI_INT,rank+1,HELLO,MPI_COMM_WORLD);
 */
   
-  arrayscan(A, size, MPI_COMM_WORLD, my_commscan);
+  if(args.parallel)
+    arrayscan(A, size, MPI_COMM_WORLD, my_commscan);
+  else
+    localscan(A, size);
+    
   time += MPI_Wtime();
 
   printf("Rank %3d min: %20ld sum: %20ld time: %2lf\n", rank, A[0], A[size-1], time);
@@ -181,14 +186,18 @@ void localscan(INT_T A[], INT_T n) {
 
 void parse_args(int argc, char ** argv, struct opt* args) {
     args->size = -1;
+    args->parallel = 1;
     
     char c;
 
-    while ((c = getopt (argc, argv, "s:")) != -1)
+    while ((c = getopt (argc, argv, "ls:")) != -1)
      switch (c)
        {
        case 's':
          args->size = strtol(optarg, NULL, 16);
+         break;
+       case 'l':
+         args->parallel = 0;
          break;
        case '?':
          if (optopt == 's')
