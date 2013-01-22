@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import sys
+import os
 
 usage = \
 "usage: jupiterrun.py [number of threads] [first node] [programm name]"
@@ -31,5 +32,5 @@ command += prog
 
 #print(command)
 
-execvp("mpirun", command)
+os.execvp("mpirun", command)
 
