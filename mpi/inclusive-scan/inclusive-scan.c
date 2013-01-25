@@ -1,5 +1,3 @@
-/* TUW, October 2011 */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -72,6 +70,7 @@ int main(int argc, char *argv[])
     #endif
   }
 #endif
+  MPI_Barrier(MPI_COMM_WORLD);
   time = - MPI_Wtime();
 /*
   if (rank==0) {
