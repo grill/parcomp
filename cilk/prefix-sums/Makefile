@@ -3,7 +3,7 @@
 all: prefixsum
 
 prefixsum: prefixsum.cilk
-	/opt/cilk-5.4.6/bin/cilkc -O3 prefixsum.cilk -o prefixsum
+	/opt/cilk-5.4.6/bin/cilkc -Wall -O3 prefixsum.cilk -o prefixsum
 
 clean:
 	rm -rf prefixsum
