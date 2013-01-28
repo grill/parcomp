@@ -1,0 +1,5 @@
+set xrange [1:48]
+
+plot "iterative_1000000000_1000" with lines,  "iterative_10000000_1000" with lines, "iterative_100000000_1000" with lines, "iterative_500000000_1000" with lines
+
+plot "taskpara_1000000000_1000" with lines, "taskpara_10000000_1000" with lines, "taskpara_100000000_1000" with lines, "taskpara_500000000_1000" with lines
