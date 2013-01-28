@@ -12,7 +12,7 @@
 static void usage(void);
 void printArray(int* arr, ATYPE size, int rank);
 double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array);
-double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array);
+double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array, ATYPE radix);
 
 int main(int argc, char *argv[])
 {
@@ -32,6 +32,7 @@ int main(int argc, char *argv[])
 //  }
 
   ATYPE R = 10; //Numbers in array
+  ATYPE radix = 10;
   ATYPE n = 100; //size of array
   int r = 0;
   int print_array = 0;
@@ -39,7 +40,7 @@ int main(int argc, char *argv[])
   char c;
 
    opterr = 0;
-   while ((c = getopt(argc, argv, "n:R:dr")) != -1 ) {
+   while ((c = getopt(argc, argv, "n:R:A:dr")) != -1 ) {
       switch (c) {
       case 'n': //array length
          if(sscanf(optarg,"%ld",&n) == EOF) {
@@ -50,6 +51,13 @@ int main(int argc, char *argv[])
          break;
       case 'R': //array length
          if(sscanf(optarg,"%ld",&R) == EOF) {
+            (void) fprintf(stderr, "%s: %s is not a valid number.\n", argv[0],
+               optarg);
+            usage();
+         }
+         break;
+      case 'A':
+         if(sscanf(optarg,"%ld",&radix) == EOF) {
             (void) fprintf(stderr, "%s: %s is not a valid number.\n", argv[0],
                optarg);
             usage();
@@ -71,7 +79,7 @@ int main(int argc, char *argv[])
    if(r)
      time = radixsort(R, n, size, rank, print_array);
   else
-     time = bucket_sort(R, n, size, rank, print_array);
+     time = bucket_sort(R, n, size, rank, print_array, radix);
 
   MPI_Reduce(&time, rtime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
@@ -230,13 +238,11 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
   return end - start;
 }
 
-double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
+double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array, ATYPE radix) {
   int localSize = n/size;
   int i;
   int k;
   int amntRecvel;
-
-  int radix = 10;
   int exp = 1;
 
   double start;
@@ -367,10 +373,10 @@ double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
 
     for (i = 0; i < localSize; i++)
       A[i] = B[i];
-    exp *= 10;
+    exp *= radix;
  
     if(print_array) {
-      printf("\nPASS %.0f  -  ", log10(exp));
+      printf("\nPASS %.0f  -  ", log10(exp)/log10(radix));
       printArray(A, localSize, rank);
     }
   }

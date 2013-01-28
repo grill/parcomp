@@ -1,0 +1,35 @@
+set xrange [1:48]
+set yrange [0:1]
+
+plot "ndata/iterative_time_1000000" with lines  , "ndata/iterative_time_10000000" with lines  , "ndata/iterative_time_100000000" with lines  , "ndata/iterative_time_500000000" with lines  , "ndata/iterative_time_1000000000" with lines  
+
+plot "ndata/recursive_time_1000000" with lines  , "ndata/recursive_time_10000000" with lines  , "ndata/recursive_time_100000000" with lines  , "ndata/recursive_time_500000000" with lines  , "ndata/recursive_time_1000000000" with lines  
+
+plot "ndata/hillis_time_1000000" with lines  , "ndata/hillis_time_10000000" with lines  , "ndata/hillis_time_100000000" with lines  , "ndata/hillis_time_500000000" with lines  , "ndata/hillis_time_1000000000" with lines  
+
+plot "ndata/reduce_1000000" with lines  , "ndata/reduce_10000000" with lines  , "ndata/reduce_100000000" with lines  , "ndata/reduce_500000000" with lines  , "ndata/reduce_1000000000" with lines  
+
+
+plot "ndata2/iterative_time_1000000" with lines  , "ndata2/iterative_time_10000000" with lines  , "ndata2/iterative_time_100000000" with lines  , "ndata2/iterative_time_500000000" with lines  , "ndata2/iterative_time_1000000000" with lines  
+
+plot "ndata2/recursive_time_1000000" with lines  , "ndata2/recursive_time_10000000" with lines  , "ndata2/recursive_time_100000000" with lines  , "ndata2/recursive_time_500000000" with lines  , "ndata2/recursive_time_1000000000" with lines  
+
+plot "ndata2/hillis_time_1000000" with lines  , "ndata2/hillis_time_10000000" with lines  , "ndata2/hillis_time_100000000" with lines  , "ndata2/hillis_time_500000000" with lines  , "ndata2/hillis_time_1000000000" with lines  
+
+plot "ndata2/reduce_1000000" with lines  , "ndata2/reduce_10000000" with lines  , "ndata2/reduce_100000000" with lines  , "ndata2/reduce_500000000" with lines  , "ndata2/reduce_1000000000" with lines  
+
+
+
+
+plot "ndata/iterative_work_1000000" with lines  , "ndata/iterative_work_10000000" with lines  , "ndata/iterative_work_100000000" with lines  
+plot "ndata/recursive_work_1000000" with lines  , "ndata/recursive_work_10000000" with lines  , "ndata/recursive_work_100000000" with lines  
+plot "ndata/hillis_work_1000000" with lines  , "ndata/hillis_work_10000000" with lines  , "ndata/hillis_work_100000000" with lines  
+
+
+plot "ndata/iterative_work_1000000_time" with lines  , "ndata/iterative_work_10000000_time" with lines  , "ndata/iterative_work_100000000_time" with lines  
+plot "ndata/recursive_work_1000000_time" with lines  , "ndata/recursive_work_10000000_time" with lines  , "ndata/recursive_work_100000000_time" with lines  
+plot "ndata/hillis_work_1000000_time" with lines  , "ndata/hillis_work_10000000_time" with lines  , "ndata/hillis_work_100000000_time" with lines  
+
+plot "ndata2/iterative_work_1000000_time" with lines  , "ndata2/iterative_work_10000000_time" with lines  , "ndata2/iterative_work_100000000_time" with lines  
+plot "ndata2/recursive_work_1000000_time" with lines  , "ndata2/recursive_work_10000000_time" with lines  , "ndata2/recursive_work_100000000_time" with lines  
+plot "ndata2/hillis_work_1000000_time" with lines  , "ndata2/hillis_work_10000000_time" with lines  , "ndata2/hillis_work_100000000_time" with lines  

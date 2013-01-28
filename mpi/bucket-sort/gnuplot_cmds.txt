@@ -1,0 +1,45 @@
+set xrange [1:35]
+
+plot "ndata/bucket/r_21474836" with lines, "ndata/bucket/r_214748364" with lines, "ndata/bucket/r_2147483647" with lines
+
+
+
+plot "ndata/bucket/10_21474836" with lines, "ndata/bucket/10_214748364" with lines, "ndata/bucket/10_2147483647" with lines
+
+plot "ndata/bucket/50_21474836" with lines, "ndata/bucket/50_214748364" with lines, "ndata/bucket/50_2147483647" with lines
+
+plot "ndata/bucket/100_21474836" with lines, "ndata/bucket/100_214748364" with lines, "ndata/bucket/100_2147483647" with lines
+
+plot "ndata/bucket/200_21474836" with lines, "ndata/bucket/200_214748364" with lines, "ndata/bucket/200_2147483647" with lines
+
+plot "ndata/bucket/250_21474836" with lines, "ndata/bucket/250_214748364" with lines, "ndata/bucket/250_2147483647" with lines
+
+
+
+plot "ndata/bucket/10_size" with lines, "ndata/bucket/50_size" with lines, "ndata/bucket/100_size" with lines, "ndata/bucket/150_size" with lines, "ndata/bucket/200_size" with lines, "ndata/bucket/250_size" with lines
+
+plot "ndata/bucket/10_21474836" with lines, "ndata/bucket/50_21474836" with lines, "ndata/bucket/100_21474836" with lines, "ndata/bucket/150_21474836" with lines, "ndata/bucket/200_21474836" with lines, "ndata/bucket/250_21474836" with lines
+
+plot "ndata/bucket/10_214748364" with lines, "ndata/bucket/50_214748364" with lines, "ndata/bucket/100_214748364" with lines, "ndata/bucket/150_214748364" with lines, "ndata/bucket/200_214748364" with lines, "ndata/bucket/250_214748364" with lines
+
+plot "ndata/bucket/10_2147483647" with lines, "ndata/bucket/50_2147483647" with lines, "ndata/bucket/100_2147483647" with lines, "ndata/bucket/150_2147483647" with lines, "ndata/bucket/200_2147483647" with lines, "ndata/bucket/250_2147483647" with lines
+
+
+
+plot "ndata/radix/10_21474836" with lines, "ndata/radix/10_214748364" with lines, "ndata/radix/10_2147483647" with lines
+
+plot "ndata/radix/50_21474836" with lines, "ndata/radix/50_214748364" with lines, "ndata/radix/50_2147483647" with lines
+
+plot "ndata/radix/100_21474836" with lines, "ndata/radix/100_214748364" with lines, "ndata/radix/100_2147483647" with lines
+
+plot "ndata/radix/200_21474836" with lines, "ndata/radix/200_214748364" with lines, "ndata/radix/200_2147483647" with lines
+
+plot "ndata/radix/250_21474836" with lines, "ndata/radix/250_214748364" with lines, "ndata/radix/250_2147483647" with lines
+
+
+plot "ndata/radix/10_21474836" with lines, "ndata/radix/50_21474836" with lines, "ndata/radix/100_21474836" with lines, "ndata/radix/150_21474836" with lines, "ndata/radix/200_21474836" with lines, "ndata/radix/250_21474836" with lines
+
+plot "ndata/radix/10_214748364" with lines, "ndata/radix/50_214748364" with lines, "ndata/radix/100_214748364" with lines, "ndata/radix/150_214748364" with lines, "ndata/radix/200_214748364" with lines, "ndata/radix/250_214748364" with lines
+
+plot "ndata/radix/10_2147483647" with lines, "ndata/radix/50_2147483647" with lines, "ndata/radix/100_2147483647" with lines, "ndata/radix/150_2147483647" with lines, "ndata/radix/200_2147483647" with lines, "ndata/radix/250_2147483647" with lines
+
