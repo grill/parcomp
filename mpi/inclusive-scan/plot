@@ -1,0 +1,5 @@
+set logscale
+plot "datanorm" with lines title "data set size 256*k", \
+     "lessdatanorm" with lines title "data set size 16*k", \
+     "evenlessdatanorm" with lines title "data set size k", \
+     1 title "sequential execution"

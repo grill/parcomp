@@ -1,0 +1,8 @@
+set title "n=3000 m=12000"
+set yrange [0.08:10]
+set logscale
+plot "data/n3000m12000rEq1" with points title "r = 1", \
+     "data/n3000m12000cEq1" with points title "c = 1", \
+     "data/n3000m12000rEqc" with points title "r = c", \
+     "data/n3000m12000rLec" with points title "r < c", \
+     "data/n3000m12000cLer" with points title "c < r"

@@ -46,8 +46,14 @@ int main(int argc, char *argv[])
 
   //printf("%d %d\n", rank, argc);
   parse_args(argc, argv, &args);
-  if(args.size > 0) {
+  if(args.size > 0 && args.parallel) {
     size = args.size/comm_size;
+  } else if(args.size > 0) {
+    size = args.size;
+  }
+
+  if(comm_size > 1 && (! args.parallel) && rank == 0) {
+    printf("WARNING: sequential execution with more than 1 thread gives wrong data\n");
   }
 
   MPI_Get_processor_name(name,&nlen);
@@ -89,10 +95,33 @@ int main(int argc, char *argv[])
     
   time += MPI_Wtime();
 
+  INT_T sum;
+  double rtime;
+
+  if(rank == 0 && comm_size > 1 && args.parallel) {
+    MPI_Recv(&sum, 1, INT_MPI_T, comm_size-1, SCAN, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  } else if(rank == comm_size-1 && comm_size > 1 && args.parallel) {
+    MPI_Send(A + size - 1, 1, INT_MPI_T, 0, SCAN, MPI_COMM_WORLD);
+  } else {
+    sum = A[size - 1];
+  }
+
+  MPI_Reduce(&time, &rtime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+  if(rank == 0 /*&& sum == size*comm_size*(size*comm_size+1)/2*/) {
+    printf("inclusive-scan np=%d s=%ld%s time=%lf%s\n", comm_size, comm_size*size,
+      args.parallel ? "" : " local", rtime,
+      sum == size*comm_size*(size*comm_size+1)/2 ? "" : " FAIL");
+  } /*else if (rank == 0) {
+    printf("inclusive-scan np=%d s=%ld %s time=%lf FAIL\n", comm_size, comm_size*size, rtime);
+  }*/
+
+#ifndef EVAL
   printf("Rank %3d min: %20ld sum: %20ld time: %2lf\n", rank, A[0], A[size-1], time);
   if(rank == 0) {
     printf("Sum should be %ld\n", size*comm_size*(size*comm_size+1)/2);
   }
+#endif
 #ifdef DEBUGDEBUG
     for(INT_T i = 0; i < size; i++) {
         printf("%ld\n", A[i]);
@@ -137,7 +166,7 @@ INT_T my_commscan(INT_T A, MPI_Comm comm) {
     for(int k = 1; k < size; k <<= 1) {
         //receive from rank - k, send to rank + k
         //printf("sending %ld from %d to %d\n", send, rank, rank + k);
-        if(rank | k) {
+        /*if(rank | k) {
             //send first
             if(rank + k < size) {
                 MPI_Send(&send, 1, INT_MPI_T, rank + k, SCAN, comm);
@@ -153,6 +182,13 @@ INT_T my_commscan(INT_T A, MPI_Comm comm) {
             if(rank + k < size) {
                 MPI_Send(&send, 1, INT_MPI_T, rank + k, SCAN, comm);
             }
+        }*/
+        if(rank + k < size && rank - k >= 0) {
+            MPI_Sendrecv(&send, 1, INT_MPI_T, rank + k, SCAN, &recv, 1, INT_MPI_T, rank - k, SCAN, comm, MPI_STATUS_IGNORE);
+        } else if(rank + k < size) {
+            MPI_Send(&send, 1, INT_MPI_T, rank + k, SCAN, comm);
+        } else if(rank - k >= 0) {
+            MPI_Recv(&recv, 1, INT_MPI_T, rank - k, SCAN, comm, MPI_STATUS_IGNORE);
         }
         send += recv;
         recv = 0;

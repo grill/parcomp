@@ -27,11 +27,10 @@ struct opt {
 };
 
 void parse_args(int argc, char ** argv, struct opt* args) ;
-void gen_data(INT_T *A, INT_T n, INT_T m) ;
 INT_T* compute(INT_T *A, INT_T *B, int iterations, INT_T n, INT_T m, INT_T r, INT_T c, MPI_Comm comm, MPI_Datatype column_t) ;
 void synchronize(INT_T* A, INT_T n, INT_T m, INT_T r, INT_T c, MPI_Comm comm, MPI_Datatype column_t) ;
-void gen_data(INT_T *A, INT_T n, INT_T m) ;
-int check(INT_T *A, INT_T n, INT_T m, int iterations) ;
+void gen_data(INT_T *A, INT_T n, INT_T m, INT_T rid, INT_T cid) ;
+int check(INT_T *A, INT_T n, INT_T m, INT_T rid, INT_T cid, int iterations) ;
 int rank2rid(int rank, int r, int c);
 int rank2cid(int rank, int r, int c);
 int getrank(int rid, int cid, int r, int c);
@@ -72,30 +71,47 @@ int main(int argc, char ** argv) {
   parse_args(argc, argv, &args);
 
   if(args.c * args.r != comm_size) {
+    #ifndef EVAL
     printf("only have %d processes, should have (%ld*%ld=) %ld\n", comm_size, args.r, args.c, args.r*args.c);
+    #else
+    if(rank == 0)
+        printf("stencil computation, n=%ld, m=%ld, r=%ld, c=%ld, i=%d, FAIL\n", args.n, args.m, args.r, args.c, args.iterations);
+    #endif
     MPI_Finalize();
     return 1;
   } else if ((args.r != 1 && args.r % 2 != 0) || (args.c != 1 && args.c % 2 != 0)) {
+    #ifndef EVAL
     printf("r and c must be 1 or even\n");
+    #else
+    if(rank == 0)
+        printf("stencil computation, n=%ld, m=%ld, r=%ld, c=%ld, i=%d, FAIL\n", args.n, args.m, args.r, args.c, args.iterations);
+    #endif
     MPI_Finalize();
     return 1;
   } else if (args.n % args.r != 0 || args.m % args.c != 0) {
+    #ifndef EVAL
     printf("n must be divisable by r and m must be divisable by c\n");
+    #else
+    if(rank == 0)
+        printf("stencil computation, n=%ld, m=%ld, r=%ld, c=%ld, i=%d, FAIL\n", args.n, args.m, args.r, args.c, args.iterations);
+    #endif
     MPI_Finalize();
     return 1;
   }
   
+  #ifndef EVAL
   if(rank == 0) {
     printf("stencil computation, n=%ld, m=%ld, r=%ld, c=%ld, i=%d\n", args.n, args.m, args.r, args.c, args.iterations);
   }
+  #endif
 
-  n = args.n/args.r;
-  m = args.m/args.c;
+  n = args.n/args.c;
+  m = args.m/args.r;
 
   A = calloc((n+2)*(m+2),sizeof(INT_T));
   B = calloc((n+2)*(m+2),sizeof(INT_T));
 
-  gen_data(A, n, m);
+  gen_data(A, n, m, rank2rid(rank,args.r,args.c), rank2cid(rank,args.r,args.c));
 
   MPI_Type_vector(m,1,n+2,INT_MPI_T,&column_t);
   MPI_Type_commit(&column_t);
@@ -107,22 +123,33 @@ int main(int argc, char ** argv) {
 
   time += MPI_Wtime();
 
-  if(check(C, n, m, args.iterations)) {
+  double rtime;
+  MPI_Reduce(&time, &rtime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+  
+  if(rank == 0) {
+    printf("stencil computation, n=%ld, m=%ld, r=%ld, c=%ld, i=%d, time=%lf\n", args.n, args.m, args.r, args.c, args.iterations, rtime);
+  }
+
+  if(check(C, n, m, rank2rid(rank,args.r,args.c), rank2cid(rank,args.r,args.c), args.iterations)) {
     //printf("check successfull!\n");
+    #ifndef EVAL
     printf("%d: %lf\n", rank, time);
+    #endif
   } else {
     //printf("check failed!\n");
     printf("F: %d: %lf\n", rank, time);
   }
 
 #ifdef DEBUGDEBUG
-  synchronize(A,n,m,1,1,MPI_COMM_WORLD);
-  for(INT_T i = 0; i <= n+1; i++) {
-    for(INT_T j = 0; j <= m+1; j++) {
-      printf("%ld ", X(C,i,j));
+  synchronize(C, n, m, args.r, args.c, MPI_COMM_WORLD, column_t);
+  if(rank == 0) {
+  for(INT_T j = 0; j <= m+1; j++) {
+    for(INT_T i = 0; i <= n+1; i++) {
+      printf("%3ld ", X(C,i,j));
     }
     printf("\n");
-  }
+  }}
 #endif
 
   MPI_Finalize();
@@ -296,19 +323,23 @@ void synchronize(INT_T* A, INT_T n, INT_T m, INT_T r, INT_T c, MPI_Comm comm, MP
 }
 */
 
-void gen_data(INT_T *A, INT_T n, INT_T m) {
+void gen_data(INT_T *A, INT_T n, INT_T m, INT_T rid, INT_T cid) {
     for(INT_T i = 1; i <= n; i++) {
         for(INT_T j = 1; j <= m; j++) {
-           X(A,i,j) = 128*((i+j) % 2);
+           X(A,i,j) = 128*((i+j+rid*m+cid*n) % 2);
+           //X(A,i,j) = i;
+           //X(A,i,j) = rid*1000000 + cid*10000 + i*100 + j;
         }
     }
 }
 
-int check(INT_T *A, INT_T n, INT_T m, int iterations) {
+int check(INT_T *A, INT_T n, INT_T m, INT_T rid, INT_T cid, int iterations) {
     for(INT_T i = 1; i <= n; i++) {
         for(INT_T j = 1; j <= m; j++) {
-            if(X(A,i,j) != ((i+j+iterations) % 2)*128) {
+            if(X(A,i,j) != ((i+j+rid*m+cid*n+iterations) % 2)*128) {
+                #ifndef EVAL
                 printf("check failed at %ld, %ld; is %ld, should be %ld\n", i, j, X(A,i,j), (i+j+iterations)%2);
+                #endif
                 return 0;
             }
         }
@@ -335,10 +366,10 @@ void parse_args(int argc, char ** argv, struct opt* args) {
          args->m = strtol(optarg, NULL, 16);
          break;
        case 'c':
-         args->c = strtol(optarg, NULL, 16);
+         args->c = strtol(optarg, NULL, 10);
          break;
        case 'r':
-         args->r = strtol(optarg, NULL, 16);
+         args->r = strtol(optarg, NULL, 10);
          break;
        case 'i':
          args->iterations = strtol(optarg, NULL, 10);

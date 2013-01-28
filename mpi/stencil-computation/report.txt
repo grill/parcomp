@@ -1,0 +1,15 @@
+project 1: stencil computation
+
+Implemented generic solution for all c*r = p where c and r are both either equal or 1. Optimised so that wrapping is done locally when r=1 or c=1.
+
+Border exchange is implemented with MPI_Send and MPI_Recv. Each process is assigned a rid and cid so that cid * r + rid = rank. Each process then synchronizes with (rid -1, cid), (rid +1, cid), (rid, cid -1), (rid, cid +1), wrapping around when cid >= c or rid >= r. When rid is even, synchronization with (rid -1, cid) is performed before (rid +1, cid), the same tactic is applied to cid. This way, deadlocks are avoided.
+
+Running time can be estimated as O(n/c * m/r) for the iterations, plus the communication overhead. Because each node has size n/c * m/r and must send and receive 2 rows and 2 columns, the communication time is O(n/c + m/r). If we assume n, m and p to be fixed, we cannot influence the calculation time by varying c and r (because c*r = p). However, we can minimize the computation time by minimizing n/c + m/r. This is done by choosing r and c so that r/c ~= m/n.
+
+In practice, this doesn't work as predicted. The data shows that, for a square matrix, the most efficient solution has a large r and c=1, where the model would assume that r=c should be more efficient. In fact, all data sets with r=1 or c=1 show lower times than other distributions with an equal amount of threads. I suspect that this is due to the wrapping being done locally in these cases, which is dramatically faster than external communication. Large r is faster than large c because the communicated data is stored continously in that case.
+
+Correctness is tested by filling the matrix in a chessboard pattern of 1 and 0, which oscilliates when the stencil computation is performed. Additional testing has been done by assigning each node, and later each individual data cell, an unique value and verifying that the correct data is transmitted.
+
+This implementation assumes that c and r are both equal or 1. This is because the used synchronization method would require special handling and an additional communication step if c or r are odd. This could be fixed by using MPI_Sendrecv instead of separate MPI_Send and MPI_Recv calls. Values of 1 are treated differently, because no external communication is required in these cases.
+
+
