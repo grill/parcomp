@@ -45,7 +45,7 @@ cilk void cilk_down_left(ATYPE i, ATYPE j, ATYPE jmp, ATYPE unit, int threads, A
 cilk void cilk_down_right(ATYPE i, ATYPE j, ATYPE jmp, ATYPE unit, int threads, ATYPE* a);
 cilk void cilk_prefixsums2(ATYPE i, ATYPE j, ATYPE unit, int threads, ATYPE* a);
 
-int check_correctness(ATYPE* x, STYPE n);
+int check_correctness(ATYPE* x, ATYPE n);
 
 /* === Implementations === */
 
@@ -384,8 +384,8 @@ ATYPE single_sum(ATYPE* x, ATYPE n) {
   return sum;
 }
 
-int check_correctness(ATYPE* x, STYPE n) {
-  STYPE i;
+int check_correctness(ATYPE* x, ATYPE n) {
+  ATYPE i;
   int error = 0;
 
   for(i=0; i < n; i++) {
