@@ -1,0 +1,3 @@
+plot "normalized10000000" with linespoints title "small random data set", \
+     "normalized100000000" with linespoints title "larger random data set", \
+     1 title "sequential time"

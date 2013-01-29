@@ -1,0 +1,6 @@
+set title "c = 1"
+set yrange [0.08:10]
+set logscale
+plot "data/cIsOne" with points title "n=6000, m=6000", \
+     "data/n3000m12000cEq1" with points title "n=3000, m=12000", \
+     "data/n12000m3000cEq1" with points title "n=12000, m=3000"

@@ -1,0 +1,15 @@
+project 2: inclusive scan
+
+Implemented the algorithm as described in the project description. Local computation uses sequential scan, distributed ExScan uses Hillis-Steele.
+
+Local Scan does not reorder operations. Distributed scan only exploits assiociativity, because closer elements are added in first. Can also be shown by induction.
+
+Different block sizes are not a problem, as only a single value per process is used in the distributed scan. Other processes never need to know the size of the local data set.
+
+Correctnes is established by using an ascending data set for summation. Results can be verified by Gauss' formula.
+
+Running time is O(k + log p), where k is the size of the largest local array. This is because the local scan trivially takes O(n) steps to complete, the distributed scan uses O(log p) send operations. Assuming the data is evenly distributed, k = n/p and time is O(n/p + log p). What is interesting is that the coefficients on this are more than double than those of sequential scan, meaning that we can only get speedup with more than 2 processes.
+
+Speedup for different n is O(n) / O(n/p + log p) = O(p + 1/log p). This is also seen in the testdata; for large n, speedup is almost linear, small n quickly show slowdown as log p gets larger.
+
+The difference to MPI_Scan is that MPI_Scan does not compute the local prefix sums and is an inclusive scan (if it were an exclusive scan or we would use an inverse operation, we could use it to implement our inclusive scan). This is because it would be complicated to specify a neutral element for exclusive scan operations, since we use + we can easily take 0 as the neutral element in our exclusive sum.

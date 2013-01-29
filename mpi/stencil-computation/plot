@@ -1,0 +1,8 @@
+set title "n=6000 m=6000"
+set yrange [0.08:10]
+set logscale
+plot "data/rIsOne" with points title "r = 1", \
+     "data/cIsOne" with points title "c = 1", \
+     "data/rEqc" with points title "r = c", \
+     "data/rLec" with points title "r < c", \
+     "data/cLer" with points title "c < r"

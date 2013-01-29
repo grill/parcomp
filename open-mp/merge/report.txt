@@ -1,0 +1,29 @@
+Project 3 - merge with OpenMP
+
+Used two arrays of the same size in implementation and testing, merge should work with differently sized arrays by introducing an additional parameter, test data generation works. Not implemented due to time constraints.
+
+Different kinds of testdata:
+1) even elements in first arry, odd in second array
+2) elements of first array smaller than elements of second array
+3) random distribution
+
+Testdata kind 2 is the fastest, 1 is almost as fast, 3 is slowest by far but shows greatest speedup. This is likely due to branch prediction.
+
+All generated testdata results in a perfectly numbered array containing all numbers from 1 to (n+m), which makes verification easy.
+
+Algorithm used: 
+1) divide each array in 2*p blocks
+2) binary search from block starts from a in b, then binary search block starts from b in a
+3) merge block starts obtained in 1) and 2) for a and b
+
+This way, each block in a can have a maximum length of n/p and each block of b a maximum length of m/p, leading to subproblems of size O(n/p + m/p).
+
+This algorithm completes in O((m+n)/p + log n + log m) steps. We need O(p) binary searches in each array each binary search using O(log n) comparisons. They are parallelised however, which leads to O( p * log n / p ) = O(log n) steps (for array a, O(log m) for array b). The resulting subproblms are O(p) in number and have size O((m+n)/p) (see above) and are parallelised over p threads. The merging of the segmentation points cannot be parallelised, and as there must be O(p) segmentation points to make the rest of the algorithm work this takes O(p) steps. Summing it all up, the algorithm takes O(p + (m+n)/p + log n + log m) steps to complete. When m+n is sufficiently large (p in O(sqrt(m+n))), however, the O(p) term can be discarded to get O((m+n)/p + log n + log m).
+
+bonus: element repetitions
+
+The problem with element repetitions is that blocks of repeating data never get separated. That would raise the complexity of subproblems to O(k + (m+n)/p), where k is the longest run of repeating data in any array. To solve this, the length of blocks would have to be checked and parts of the run would be merged with empty blocks from the other array.
+
+bonus: mergesort
+
+In principle, the algorithm could be used to implement mergesort. This would require the input arrays to be in a continous data field, so that it can be swapped with the result set in each recursion level. It is probably a good idea to sort sequentially at some point instead of creating a huge number of threads.

@@ -1,0 +1,8 @@
+set xrange [0:17]
+plot "data100000000" with lines lt 1 lw 1 title "random data set", \
+     3.246859 with lines lt 1 lw 0.2 title "random data sequential", \
+     "data100000000.k1" with lines lt 2 lw 1 title "odd/even data set", \
+     0.764555 with lines lt 2 lw 0.2 title "odd/even data sequential", \
+     "data100000000.k2" with lines lt 3 lw 1 title "a before b data set", \
+     0.595665 with lines lt 3 lw 0.2 title "a before b sequential"
+
