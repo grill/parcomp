@@ -172,7 +172,7 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array, int wo
 
   int* A = calloc(localSize, sizeof(int));
   int* B = calloc(localSize, sizeof(int));
-  int* C = calloc(amntRecvel, sizeof(int));
+  int* C;
 
   /* Seed the random number generator */
   srand(time(NULL));
@@ -244,6 +244,7 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array, int wo
       A[i-amntRecvel] = B[i];
     }
   }
+  C = calloc(amntRecvel, sizeof(int));
 
   //Step 6:
   MPI_Alltoall(sendelts,1,MPI_INT,recvelts,1,MPI_INT,MPI_COMM_WORLD);
@@ -267,7 +268,7 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array, int wo
   //for(i = 0; i < amntRecvel; i++)
   //  fprintf(stderr,"%i C[%d] = %d, LocB[C[%d]] = %d\n",rank,i,C[i], i, LocB[C[i]]);
 
-    /*for(i=0; i < rank; i++) {
+    for(i=0; i < rank; i++) {
       for(k=0; k < recvelts[i]; k++)
 	B[LocB[C[rdispls[i]+k]]++] = C[rdispls[i]+k];
     }
@@ -284,8 +285,8 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array, int wo
     for(i=rank+1; i < size; i++) {
       for(k=0; k < recvelts[i]; k++)
 	B[LocB[C[rdispls[i]+k]]++] = C[rdispls[i]+k];
-    }*/
-  
+    }
+  /*
   for (i=0; i<localSize-amntRecvel; i++) {
    // printf("%i LocB[A]: %i, A: %i, i: %i\n",
 //	     rank, LocB[A[i]], A[i], i);
@@ -299,7 +300,7 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array, int wo
     //printf("%i LocB[C]: %i, C: %i, i: %i\n",
 	//     rank, LocB[C[i]], C[i], i);
     B[LocB[C[i]]++] = C[i];
-  }
+  }*/
 
   end = MPI_Wtime();
  
