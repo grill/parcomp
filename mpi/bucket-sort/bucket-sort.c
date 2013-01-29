@@ -11,8 +11,9 @@
 
 static void usage(void);
 void printArray(int* arr, ATYPE size, int rank);
-double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array);
-double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array, ATYPE radix);
+double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array, ATYPE radix, int worst, int correct);
+double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array, int worst, int correct);
+void worst_case(int rank, int size, int* A, ATYPE localSize);
 
 int main(int argc, char *argv[])
 {
@@ -20,6 +21,7 @@ int main(int argc, char *argv[])
   int size;
   double time;
   double* rtime = malloc(sizeof(double));
+  int correctness = 0;
 
   MPI_Init(&argc,&argv);
 
@@ -36,11 +38,12 @@ int main(int argc, char *argv[])
   ATYPE n = 100; //size of array
   int r = 0;
   int print_array = 0;
+  int worst = 0;
 
   char c;
 
    opterr = 0;
-   while ((c = getopt(argc, argv, "n:R:A:dr")) != -1 ) {
+   while ((c = getopt(argc, argv, "n:R:A:drwc")) != -1 ) {
       switch (c) {
       case 'n': //array length
          if(sscanf(optarg,"%ld",&n) == EOF) {
@@ -65,6 +68,8 @@ int main(int argc, char *argv[])
          break;
       case 'd': print_array = 1; break;
       case 'r': r = 1; break;
+      case 'w': worst = 1; break;
+      case 'c': correctness = 1; break;
       case '?':
          (void) fprintf(stderr, "%s: The Parameter %c is invalid.\n", argv[0],
             optopt);
@@ -76,10 +81,13 @@ int main(int argc, char *argv[])
       }
    }
 
+   if(worst)
+     R = n;
+
    if(r)
-     time = radixsort(R, n, size, rank, print_array);
+     time = radixsort(R, n, size, rank, print_array, radix, worst, correctness);
   else
-     time = bucket_sort(R, n, size, rank, print_array, radix);
+     time = bucket_sort(R, n, size, rank, print_array, worst, correctness);
 
   MPI_Reduce(&time, rtime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
@@ -92,7 +100,51 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
+void radix_test (int rank, int size, int* A, ATYPE localSize) {
+  int v;
+  int i = 0;
+  char s[255];
+  sprintf(s, "Test_%d", rank);
+  FILE* in = fopen(s, "r");
+
+  for(; i < localSize && EOF != fscanf(in,"%d", &v); i++) A[i] = v;
+  
+  fclose(in);
+}
+
+int radix_correctness(int rank, int size, int *A, ATYPE localSize) {
+  int error = 0;
+  int i = 0;
+  int v;
+  char s[255];
+  sprintf(s, "Erg_%d", rank);
+  FILE* in = fopen(s, "r");
+
+  for(; i < localSize && EOF != fscanf(in,"%d", &v); i++)
+    error = error || (A[i] != v);
+
+  return !error;
+}
+
+int bucket_sort_correctness(int rank, int size, int *A, ATYPE localSize) {
+  int error = 0;
+  int i = 0;
+  int v = (rank*localSize-1);
+
+  for(; i < localSize; i++)
+    error = error || (A[i] != v++);
+
+  return !error;
+}
+
+void worst_case(int rank, int size, int* A, ATYPE localSize) {
+  int v = ((size-rank)*localSize-1);
+  int i = 0;
+
+  for(; i < localSize; i++) A[i] = v--;
+}
+
+double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array, int worst, int correct) {
   ATYPE localSize = n/size;
   //step 1: local bucket sort; buckets[i] = amnt of keys i
   ATYPE i;
@@ -114,19 +166,28 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
 
   memset((void* ) sendelts, 0, sizeof(int)*size);
 
+  memset((void* ) bucket, 0, sizeof(int)*R);
+  memset((void* ) AllB, 0, sizeof(int)*R);
+  memset((void* ) RelB, 0, sizeof(int)*R);
+
   int* A = calloc(localSize, sizeof(int));
   int* B = calloc(localSize, sizeof(int));
-  int* C;
+  int* C = calloc(amntRecvel, sizeof(int));
 
   /* Seed the random number generator */
   srand(time(NULL));
 
   /* Initialize array with random numbers, from 0 to max_num */
-  for(i = 0; i < localSize; i++)
-    A[i] = rand() % R;
+  if(worst || correct) {
+    worst_case(rank, size, A, localSize); 
+  } else {
+    for(i = 0; i < localSize; i++)
+      A[i] = rand() % R;
+  }
+
   if(print_array)
     for(i = 0; i < localSize; i++)
-      fprintf(stderr,"A[%li] = %d\n",i,A[i]);
+      fprintf(stderr,"P %d: A[%li] = %d\n",rank, i,A[i]);
 
 //  if(rank == 0)
 //    fprintf(stdout, "Bucket Sort...\n\n");
@@ -134,7 +195,6 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
   /* Start Timer */
   start = MPI_Wtime();
 
-  for (i=0; i<R; i++) bucket[i] = 0;
   for (i=0; i<localSize; i++) bucket[A[i]]++;
 
   LocB[0] = bucket[0];
@@ -145,7 +205,11 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
   for (i=R-1; i>0; i--) bucket[i] = bucket[i-1];
   bucket[0] = 0;
 
-  for (i=0; i<localSize; i++) B[bucket[A[i]]++] = A[i];
+  
+  for (i=0; i<localSize; i++) {
+    B[bucket[A[i]]++] = A[i];
+  }
+  
 
   free(bucket);
   //step 2: O(n + log p)
@@ -154,6 +218,7 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
   //step 3
   MPI_Exscan(LocB,RelB,R,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
+  
   //Step 4: local exclusive prefix-sums of AllB
   for (i=1; i<R; i++) AllB[i] += AllB[i-1];
   for (i=R-1; i>0; i--) AllB[i] = AllB[i-1];
@@ -162,6 +227,8 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
   //Now: Local element A[j] needs to go to position
   //AllB[A[j]]+RelB[A[j]]+j‘ (for A[j]>0)
 
+  
+  
   //Step 5: compute number of elements to be sent to each other process, sendelts[i], i=0,...,p-1
   for(i=0; i<localSize; i++) {
     k = (AllB[B[i]]+RelB[B[i]]++) / localSize;
@@ -177,9 +244,6 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
       A[i-amntRecvel] = B[i];
     }
   }
-  free(AllB);
-  free(RelB);
-  C = calloc(amntRecvel, sizeof(int));
 
   //Step 6:
   MPI_Alltoall(sendelts,1,MPI_INT,recvelts,1,MPI_INT,MPI_COMM_WORLD);
@@ -203,6 +267,25 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
   //for(i = 0; i < amntRecvel; i++)
   //  fprintf(stderr,"%i C[%d] = %d, LocB[C[%d]] = %d\n",rank,i,C[i], i, LocB[C[i]]);
 
+    /*for(i=0; i < rank; i++) {
+      for(k=0; k < recvelts[i]; k++)
+	B[LocB[C[rdispls[i]+k]]++] = C[rdispls[i]+k];
+    }
+
+    for (i=0; i<localSize-amntRecvel; i++) {
+      B[LocB[A[i]]++] = A[i];
+    }
+
+    //printf("bl: %i\n", amntRecvel);
+    //printArray(C, localSize, rank);
+    //printArray(LocB, radix, rank);
+    //printArray(B, localSize, rank);
+
+    for(i=rank+1; i < size; i++) {
+      for(k=0; k < recvelts[i]; k++)
+	B[LocB[C[rdispls[i]+k]]++] = C[rdispls[i]+k];
+    }*/
+  
   for (i=0; i<localSize-amntRecvel; i++) {
    // printf("%i LocB[A]: %i, A: %i, i: %i\n",
 //	     rank, LocB[A[i]], A[i], i);
@@ -224,6 +307,10 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
     printArray(B, localSize, rank);
 //  fprintf(stdout, "%f", (end - start));
 //  fprintf(stdout, "Proc %i - Time: %f\n", rank, (end - start));
+  
+  if(correct)
+    if(!bucket_sort_correctness(rank, size, B, localSize))
+      printf("proc %i: fail", rank);
 
   free(A);
   free(LocB);
@@ -233,12 +320,14 @@ double bucket_sort(ATYPE R, ATYPE n, int size, int rank, int print_array) {
   free(sdispls);
   free(rdispls);
   free(recvelts);
+  free(AllB);
+  free(RelB);
 
   //Possible optimization: replace MPI_Allreduce by MPI_Bcast
   return end - start;
 }
 
-double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array, ATYPE radix) {
+double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array, ATYPE radix, int worst, int correct) {
   int localSize = n/size;
   int i;
   int k;
@@ -267,8 +356,14 @@ double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array, ATYPE ra
   srand(time(NULL));
 
   /* Initialize array with random numbers, from 0 to R */
-  for(i = 0; i < localSize; i++)
-    A[i] = rand() % R;
+  if(correct) {
+    radix_test (rank, size, A, localSize);
+  } else if(worst) {
+    worst_case(rank, size, A, localSize);
+  } else {
+    for(i = 0; i < localSize; i++)
+      A[i] = rand() % R;
+  }
  // if(print_array)
  //   for(i = 0; i < localSize; i++)
   //    fprintf(stderr,"A[%d] = %d\n",i,A[i]);
@@ -385,6 +480,11 @@ double radixsort(ATYPE R, ATYPE n, int size, int rank, int print_array, ATYPE ra
 //  fprintf(stdout, "%f", (end - start));
 //  fprintf(stdout, "Proc %i - Time: %f\n", rank, (end - start));
 
+  if(correct) {
+    if(!radix_correctness(rank, size, A, localSize))
+      printf("Proc %i: fail", rank);
+  }
+  
   free(AllB);
   free(RelB);
   free(LocB);
